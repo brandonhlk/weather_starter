@@ -41,3 +41,65 @@ input:focus-visible {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
+.weather-map {
+  height: 17rem;
+  width: 100%;
+  background: rgba(30, 50, 70, 0.45);
+}
+
+.weather-map-expanded {
+  height: 100%;
+}
+
+.weather-map-marker-wrapper {
+  background: transparent;
+  border: 0;
+}
+
+.weather-map-marker {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  transform: translateY(0);
+}
+
+.weather-map-marker-dot {
+  background: #f8fafc;
+  border: 3px solid #5b8db8;
+  border-radius: 9999px 9999px 9999px 0;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.45);
+  height: 1rem;
+  transform: rotate(-45deg);
+  width: 1rem;
+}
+
+.weather-map-marker.is-selected .weather-map-marker-dot {
+  background: #fcd34d;
+  border-color: #fff;
+  height: 1.15rem;
+  width: 1.15rem;
+}
+
+.weather-map-marker-label {
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 9999px;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.25rem 0.4rem;
+  white-space: nowrap;
+}
+
+.weather-map-tooltip {
+  background: rgba(15, 23, 42, 0.88) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 9999px !important;
+  box-shadow: none !important;
+  color: white !important;
+  font-size: 0.7rem;
+  padding: 0.25rem 0.5rem !important;
+}

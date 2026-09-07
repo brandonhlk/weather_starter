@@ -100,6 +100,20 @@ export function AirQualityTile({ weather }: WeatherProps) {
   );
 }
 
+export function ConditionTile({ weather }: WeatherProps) {
+  return (
+    <TileShell icon={<CloudIcon className="h-3.5 w-3.5" />} title="Condition" className="col-span-2">
+      <div className="text-2xl font-light leading-tight text-white/95">
+        {weather?.condition || 'Unavailable'}
+      </div>
+      <div className="mt-1 text-sm text-white/80">{weather?.area || 'Area unavailable'}</div>
+      <p className="mt-3 text-xs leading-snug text-white/70">
+        {weather?.valid_period_text || 'Latest two-hour regional forecast.'}
+      </p>
+    </TileShell>
+  );
+}
+
 export function WindTile({ weather }: WeatherProps) {
   const speedKmh = knotsToKmh(weather?.wind_speed_knots);
   const speed = formatNumber(speedKmh);
@@ -247,6 +261,7 @@ export function AveragesTile({ weather }: WeatherProps) {
 export function TileGrid({ weather }: WeatherProps) {
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <ConditionTile weather={weather} />
       <AirQualityTile weather={weather} />
       <WindTile weather={weather} />
       <UVTile weather={weather} />

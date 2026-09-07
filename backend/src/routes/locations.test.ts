@@ -74,4 +74,13 @@ describe('locations API', () => {
     expect(listResponse.body.locations).toHaveLength(1);
     expect(listResponse.body.locations[0].weather.condition).toBe('Cloudy');
   });
+
+  it('deletes a saved location', async () => {
+    await request(app).delete('/api/locations/1').expect(204);
+    await request(app).get('/api/locations/1').expect(404);
+
+    const listResponse = await request(app).get('/api/locations').expect(200);
+    expect(listResponse.body.locations).toHaveLength(0);
+    await request(app).delete('/api/locations/1').expect(404);
+  });
 });

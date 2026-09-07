@@ -182,9 +182,52 @@ export class SingaporeWeatherClient {
 
   async getCurrentWeather(latitude: number, longitude: number): Promise<WeatherSnapshot> {
     const forecastPayload = await this.fetchLatestForecastPayload().catch(() => null);
-    return forecastPayload
+    const snapshot = forecastPayload
       ? this.snapshotFromPayload(forecastPayload, latitude, longitude)
       : this.emptyForecastSnapshot();
+
+    const [
+      temperature,
+      humidity,
+      rainfall,
+      windSpeed,
+      windDirection,
+      uv,
+      airQuality,
+      twentyFourHourForecast,
+      fourDayForecast,
+    ] =
+      await Promise.allSettled([
+      this.fetchNearestReading('air-temperature', latitude, longitude),
+      this.fetchNearestReading('relative-humidity', latitude, longitude),
+      this.fetchNearestReading('rainfall', latitude, longitude),
+      this.fetchNearestReading('wind-speed', latitude, longitude),
+      this.fetchNearestReading('wind-direction', latitude, longitude),
+      this.fetchUvIndex(),
+      this.fetchAirQuality(latitude, longitude),
+      this.fetchTwentyFourHourForecast(latitude, longitude),
+      this.fetchFourDayForecast(),
+    ]);
+    const airQualityValue = settledAirQuality(airQuality);
+    const forecastValue = settledForecast(twentyFourHourForecast);
+    const dailyForecastValue = settledDailyForecast(fourDayForecast);
+
+    return {
+      ...snapshot,
+      temperature_c: settledValue(temperature),
+      humidity_percent: settledValue(humidity),
+      rainfall_mm: settledValue(rainfall),
+      wind_speed_knots: settledValue(windSpeed),
+      wind_direction_degrees: settledValue(windDirection),
+      uv_index: settledValue(uv),
+      psi_twenty_four_hourly: airQualityValue.psi,
+      pm25_one_hourly: airQualityValue.pm25,
+      air_quality_region: airQualityValue.region,
+      forecast_low_c: forecastValue.low,
+      forecast_high_c: forecastValue.high,
+      forecast_periods: forecastValue.periods,
+      daily_forecast: dailyForecastValue.days,
+    };
   }
 
   async fetchLatestForecastPayload(): Promise<ForecastPayload> {
@@ -256,21 +299,17 @@ export class SingaporeWeatherClient {
     region: string | null;
     timestamp: string | null;
   }> {
-    const [psiPayload, pm25Payload] = await Promise.all([
+    const [psiResult, pm25Result] = await Promise.allSettled([
       this.fetchJson<PsiPayload>(`${this.apiBaseUrl()}/v2/real-time/api/psi`),
       this.fetchJson<PsiPayload>(`${this.apiBaseUrl()}/v2/real-time/api/pm25`),
     ]);
-    for (const payload of [psiPayload, pm25Payload]) {
-      if (payload.code !== undefined && payload.code !== 0) {
-        throw new WeatherProviderError(
-          payload.errorMsg ?? 'Weather provider returned an air quality error',
-        );
-      }
-    }
-
-    const region = nearestRegionName(psiPayload.data?.regionMetadata ?? [], latitude, longitude);
-    const psiItem = psiPayload.data?.items?.[0];
-    const pm25Item = pm25Payload.data?.items?.[0];
+    const psiPayload = settledPayload(psiResult);
+    const pm25Payload = settledPayload(pm25Result);
+    const regions = psiPayload?.data?.regionMetadata ?? pm25Payload?.data?.regionMetadata ?? [];
+    const region = nearestRegionName(regions, latitude, longitude) ??
+      nearestRegionName(defaultRegions(), latitude, longitude);
+    const psiItem = psiPayload?.data?.items?.[0];
+    const pm25Item = pm25Payload?.data?.items?.[0];
     return {
       psi: valueForRegion(psiItem?.readings?.psi_twenty_four_hourly, region),
       pm25: valueForRegion(pm25Item?.readings?.pm25_one_hourly, region),
@@ -549,6 +588,50 @@ function latestTimestamp(timestamps: Array<string | null>): string | null {
 function numberOrNull(value: number | string | undefined): number | null {
   const number = Number(value);
   return Number.isNaN(number) ? null : number;
+}
+
+function settledValue(
+  result: PromiseSettledResult<{ value: number | null; timestamp: string | null }>,
+): number | null {
+  return result.status === 'fulfilled' ? result.value.value : null;
+}
+
+function settledPayload(result: PromiseSettledResult<PsiPayload>): PsiPayload | null {
+  if (result.status !== 'fulfilled') return null;
+  if (result.value.code !== undefined && result.value.code !== 0) return null;
+  return result.value;
+}
+
+function settledForecast(
+  result: PromiseSettledResult<{
+    low: number | null;
+    high: number | null;
+    periods: ForecastPeriod[];
+    timestamp: string | null;
+  }>,
+): { low: number | null; high: number | null; periods: ForecastPeriod[] } {
+  return result.status === 'fulfilled'
+    ? { low: result.value.low, high: result.value.high, periods: result.value.periods }
+    : { low: null, high: null, periods: [] };
+}
+
+function settledDailyForecast(
+  result: PromiseSettledResult<{ days: DailyForecast[]; timestamp: string | null }>,
+): { days: DailyForecast[] } {
+  return result.status === 'fulfilled' ? { days: result.value.days } : { days: [] };
+}
+
+function settledAirQuality(
+  result: PromiseSettledResult<{
+    psi: number | null;
+    pm25: number | null;
+    region: string | null;
+    timestamp: string | null;
+  }>,
+): { psi: number | null; pm25: number | null; region: string | null } {
+  return result.status === 'fulfilled'
+    ? { psi: result.value.psi, pm25: result.value.pm25, region: result.value.region }
+    : { psi: null, pm25: null, region: null };
 }
 
 function valueForRegion(
